@@ -8,6 +8,7 @@ Console.WriteLine("🤖 Фенрир запущен. Напишите 'выхо�
 var skills = new List<ISkill>
 {
     new BrowserSkill(),
+    new CalculatorSkill(),
     // Сюда будем добавлять новые навыки
 };
 
