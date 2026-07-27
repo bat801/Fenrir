@@ -10,6 +10,7 @@ var skills = new List<ISkill>
     new BrowserSkill(),
     new CalculatorSkill(),
     new TimeSkill(),
+    new SystemSkill(),
     // Сюда будем добавлять новые навыки
 };
 
