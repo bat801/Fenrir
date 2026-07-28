@@ -16,9 +16,9 @@ public class CalculatorSkill : ISkill
 
     public Task<CommandResult> ExecuteAsync(string command)
     {
-        // Ищем математическое выражение в тексте команды
+        // Ищем математическое выражение в тексте команды: обязательно начинается с цифры
         // Поддерживаем: цифры, +, -, *, /, ., пробелы, скобки
-        var match = Regex.Match(command, @"[\d\s\+\-\*\/\.\(\)]+");
+        var match = Regex.Match(command, @"\d[\d\s+\-*\/\.\(\)]*");
 
         if (!match.Success || string.IsNullOrWhiteSpace(match.Value))
         {

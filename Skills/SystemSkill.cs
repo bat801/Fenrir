@@ -67,8 +67,19 @@ public class SystemSkill : ISkill
         {
             try
             {
-                Process.Start("taskmgr.exe");
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "taskmgr.exe",
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                Process.Start(startInfo);
                 return Task.FromResult(CommandResult.Ok("Открываю диспетчер задач."));
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return Task.FromResult(CommandResult.Fail(
+                    "Недостаточно прав. Запустите Fenrir от имени администратора."));
             }
             catch (Exception ex)
             {
@@ -173,6 +184,6 @@ public class SystemSkill : ISkill
     }
 
     // Win32 API для блокировки экрана
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", EntryPoint = "LockWorkStation")]
     private static extern bool LockWorkStationNative();
 }
