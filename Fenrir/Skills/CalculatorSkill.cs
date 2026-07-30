@@ -16,8 +16,10 @@ public class CalculatorSkill : ISkill
 
     public Task<CommandResult> ExecuteAsync(string command)
     {
-        // Ищем математическое выражение в тексте команды: обязательно начинается с цифры
-        // Поддерживаем: цифры, +, -, *, /, ., пробелы, скобки
+        // Сначала заменяем слова-числа на цифры
+        command = ReplaceNumberWords(command);
+
+        // Ищем математическое выражение
         var match = Regex.Match(command, @"\d[\d\s+\-*\/\.\(\)]*");
 
         if (!match.Success || string.IsNullOrWhiteSpace(match.Value))
@@ -29,7 +31,6 @@ public class CalculatorSkill : ISkill
 
         try
         {
-            // DataTable.Compute — простой и безопасный способ вычислить строку
             var dataTable = new DataTable();
             var result = dataTable.Compute(expression, null);
             return Task.FromResult(CommandResult.Ok($"{expression} = {result}"));
@@ -38,5 +39,35 @@ public class CalculatorSkill : ISkill
         {
             return Task.FromResult(CommandResult.Fail($"Ошибка при вычислении '{expression}': {ex.Message}"));
         }
+    }
+
+    /// <summary>
+    /// Заменяет русские слова-числа на цифры.
+    /// "два плюс сто" → "2 + 100"
+    /// </summary>
+    private string ReplaceNumberWords(string text)
+    {
+        // Единицы
+        text = Regex.Replace(text, @"\bноль\b", "0", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bодин\b", "1", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bодна\b", "1", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bдва\b", "2", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bдве\b", "2", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bтри\b", "3", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bчетыре\b", "4", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bпять\b", "5", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bшесть\b", "6", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bсемь\b", "7", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bвосемь\b", "8", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bдевять\b", "9", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bдесять\b", "10", RegexOptions.IgnoreCase);
+
+        // Поддержка "плюс", "минус", "умножить", "разделить"
+        text = Regex.Replace(text, @"\bплюс\b", "+", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bминус\b", "-", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bумножить\b", "*", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bразделить\b", "/", RegexOptions.IgnoreCase);
+
+        return text;
     }
 }
