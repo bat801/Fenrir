@@ -47,6 +47,11 @@ public class CalculatorSkill : ISkill
     /// </summary>
     private string ReplaceNumberWords(string text)
     {
+        // Удаляем слова-паразиты перед поиском выражения
+        text = Regex.Replace(text, @"\bна\b", " ", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bпод\b", " ", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bиз\b", " ", RegexOptions.IgnoreCase);
+
         // Единицы
         text = Regex.Replace(text, @"\bноль\b", "0", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\bодин\b", "1", RegexOptions.IgnoreCase);
@@ -67,6 +72,11 @@ public class CalculatorSkill : ISkill
         text = Regex.Replace(text, @"\bминус\b", "-", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\bумножить\b", "*", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\bразделить\b", "/", RegexOptions.IgnoreCase);
+
+        // Вариации для Whisper
+        text = Regex.Replace(text, @"\bумножаем\b", "*", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bделим\b", "/", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"\bподелить\b", "/", RegexOptions.IgnoreCase);
 
         return text;
     }

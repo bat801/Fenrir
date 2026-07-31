@@ -8,6 +8,9 @@ public class RecognitionService
 {
     private readonly string _pythonScriptPath;
 
+    private bool _isRecording = false;
+    private readonly object _recordLock = new object();
+
     public RecognitionService(string pythonScriptPath)
     {
         _pythonScriptPath = pythonScriptPath;
@@ -50,7 +53,25 @@ public class RecognitionService
 
             // Отдаём Python Whisper
             string text = await TranscribeAsync(tempWavPath, cancellationToken);
+            // Игнорируем результат, если это известная галлюцинация или слишком короткая запись
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            // Игнорируем известные галлюцинации Whisper
+            if (text.Contains("Редактор субтитров", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Закомолдина", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("ПОЗИТИВАЮЩАЯ МУЗЫКА", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("субтитров", StringComparison.OrdinalIgnoreCase))                
+            {
+                return string.Empty;
+            }
+
             return text;
+        }
+        catch (OperationCanceledException)
+        {
+            // Нормально: клавиатурный ввод отменил голос
+            return string.Empty;
         }
         catch (Exception ex)
         {
@@ -66,41 +87,80 @@ public class RecognitionService
 
     private async Task RecordAudio(string outputPath, CancellationToken ct)
     {
-        // Используем WaveInEvent — он точно есть в NAudio для .NET 8
-        var waveIn = new WaveInEvent
+        // Защита от повторного входа
+        if (_isRecording)
+            return;
+
+        lock (_recordLock)
         {
-            WaveFormat = new WaveFormat(16000, 16, 1)
-        };
-
-        var writer = new WaveFileWriter(outputPath, waveIn.WaveFormat);
-
-        var tcs = new TaskCompletionSource<bool>();
-
-        waveIn.DataAvailable += (sender, args) =>
-        {
-            if (args.BytesRecorded > 0)
-                writer.Write(args.Buffer, 0, args.BytesRecorded);
-        };
-
-        waveIn.RecordingStopped += (sender, args) =>
-        {
-            writer.Dispose();
-            waveIn.Dispose();
-            tcs.TrySetResult(true);
-        };
-
-        waveIn.StartRecording();
-
-        // Ждём отпускания клавиш
-        while (IsKeyPressed(0x11) && IsKeyPressed(0x10))
-        {
-            if (ct.IsCancellationRequested)
-                break;
-            await Task.Delay(100, ct);
+            if (_isRecording)
+                return;
+            _isRecording = true;
         }
 
-        waveIn.StopRecording();
-        await tcs.Task; // Ждём завершения остановки
+        try
+        {
+            var waveIn = new WaveInEvent
+            {
+                WaveFormat = new WaveFormat(16000, 16, 1),
+                BufferMilliseconds = 50  // Меньше задержка
+            };
+
+            var writer = new WaveFileWriter(outputPath, waveIn.WaveFormat);
+            var tcs = new TaskCompletionSource<bool>();
+
+            waveIn.DataAvailable += (sender, args) =>
+            {
+                if (args.BytesRecorded > 0)
+                {
+                    try
+                    {
+                        writer.Write(args.Buffer, 0, args.BytesRecorded);
+                    }
+                    catch (ObjectDisposedException) { }
+                }
+            };
+
+            waveIn.RecordingStopped += (sender, args) =>
+            {
+                try
+                {
+                    writer.Dispose();
+                    waveIn.Dispose();
+                }
+                catch { }
+                tcs.TrySetResult(true);
+            };
+
+            waveIn.StartRecording();
+
+            // Ждём отпускания клавиш
+            while (IsKeyPressed(0x11) && IsKeyPressed(0x10))
+            {
+                if (ct.IsCancellationRequested)
+                    break;
+                await Task.Delay(100, ct);
+            }
+
+            // Останавливаем запись
+            try
+            {
+                waveIn.StopRecording();
+                // Ждём завершения с таймаутом
+                await Task.WhenAny(tcs.Task, Task.Delay(2000));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Ошибка при остановке записи: {ex.Message}");
+            }
+        }
+        finally
+        {
+            lock (_recordLock)
+            {
+                _isRecording = false;
+            }
+        }
     }
 
     private async Task<string> TranscribeAsync(string wavPath, CancellationToken ct)

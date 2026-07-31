@@ -11,7 +11,7 @@ from faster_whisper import WhisperModel
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-MODEL_SIZE = "tiny"
+MODEL_SIZE = "small"
 
 def main():
     if len(sys.argv) < 2:

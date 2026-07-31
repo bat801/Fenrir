@@ -49,27 +49,78 @@ while (true)
 {
     Console.Write("> ");
 
-    // Запускаем параллельно: чтение с клавиатуры И ожидание голоса
     string? input = null;
-    var consoleInputTask = Task.Run(() => Console.ReadLine() ?? string.Empty);
-    var voiceInputTask = recognition.ListenAsync();
 
-    // Ждём, что произойдёт первым: ввод с клавиатуры или голос
-    var completedTask = await Task.WhenAny(consoleInputTask, voiceInputTask);
+    // Ждём либо клавиатуру, либо голос — что произойдёт раньше
+    using var cts = new CancellationTokenSource();
 
-    if (completedTask == consoleInputTask)
+    // Задача: ждём нажатия Enter (клавиатурный ввод)
+    var keyboardTask = Task.Run(() =>
     {
-        input = await consoleInputTask;
+        var line = new System.Text.StringBuilder();
+        while (!cts.Token.IsCancellationRequested)
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(intercept: true);
+
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    Console.WriteLine(); // Переход на новую строку
+                    return line.ToString().Trim();
+                }
+                else if (key.Key == ConsoleKey.Backspace && line.Length > 0)
+                {
+                    line.Length--;
+                    Console.Write("\b \b"); // Стираем символ
+                }
+                else if (!char.IsControl(key.KeyChar))
+                {
+                    line.Append(key.KeyChar);
+                    Console.Write(key.KeyChar); // Эхо-вывод
+                }
+            }
+            else
+            {
+                Thread.Sleep(50);
+            }
+        }
+        return string.Empty;
+    }, cts.Token);
+
+    // Задача: ждём голосовой ввод
+    var voiceTask = recognition.ListenAsync(cts.Token);
+
+    // Ждём, что произойдёт раньше
+    var completedTask = await Task.WhenAny(keyboardTask, voiceTask);
+
+    if (completedTask == keyboardTask)
+    {
+        // Клавиатура победила — отменяем голос
+        cts.Cancel();
+        input = await keyboardTask;
     }
     else
     {
-        input = await voiceInputTask;
+        // Голос победил
+        input = await voiceTask;
+        cts.Cancel(); // Отменяем ожидание клавиатуры
+
+        // Очищаем буфер консоли от случайных нажатий во время голосового ввода
+        await Task.Delay(100);
+        while (Console.KeyAvailable)
+            Console.ReadKey(true);
     }
 
     if (string.IsNullOrWhiteSpace(input))
         continue;
 
-    Console.WriteLine(input); // Показываем, что распознано
+    // Убираем точку в конце
+    input = input.TrimEnd('.').Trim();
+
+    // Показываем что распознано (для голосового ввода уже показано, но для единообразия)
+    if (completedTask == voiceTask)
+        Console.WriteLine(input);
 
     // Системные команды
     if (input.Equals("выход", StringComparison.OrdinalIgnoreCase) ||

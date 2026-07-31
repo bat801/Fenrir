@@ -136,23 +136,24 @@ public class SystemSkill : ISkill
 
     private Task<CommandResult> ChangeVolume(int delta)
     {
-        // Отправляем нажатия клавиш громкости через PowerShell + SendKeys
-        // Это самый надёжный способ без внешних библиотек
         try
         {
-            int presses = Math.Abs(delta) / 2; // Каждое нажатие ~2%
+            int presses = Math.Abs(delta) / 2;
             if (presses == 0) presses = 1;
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-Command \"$wshell = New-Object -ComObject WScript.Shell; for($i=0; $i -lt {presses}; $i++) {{ $wshell.SendKeys([char]{(delta > 0 ? 175 : 174)}) }}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            Process.Start(psi);
-
+            byte keyCode = (byte)(delta > 0 ? 0xAF : 0xAE); // VK_VOLUME_UP / VK_VOLUME_DOWN
             string direction = delta > 0 ? "громче" : "тише";
+
+            for (int i = 0; i < presses; i++)
+            {
+                // Нажатие
+                keybd_event(keyCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);
+                Thread.Sleep(50);
+                // Отпускание
+                keybd_event(keyCode, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, UIntPtr.Zero);
+                Thread.Sleep(50);
+            }
+
             return Task.FromResult(CommandResult.Ok($"Сделал {direction}."));
         }
         catch (Exception ex)
@@ -165,14 +166,9 @@ public class SystemSkill : ISkill
     {
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-Command \"$wshell = New-Object -ComObject WScript.Shell; $wshell.SendKeys([char]173)\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            Process.Start(psi);
+            keybd_event(0xAD, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);
+            Thread.Sleep(50);
+            keybd_event(0xAD, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, UIntPtr.Zero);
 
             string state = mute ? "выключен" : "включен";
             return Task.FromResult(CommandResult.Ok($"Звук {state}."));
@@ -182,6 +178,13 @@ public class SystemSkill : ISkill
             return Task.FromResult(CommandResult.Fail($"Не удалось переключить звук: {ex.Message}"));
         }
     }
+
+    // Win32 API — добавьте в класс SystemSkill
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     // Win32 API для блокировки экрана
     [DllImport("user32.dll", EntryPoint = "LockWorkStation")]
