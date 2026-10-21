@@ -21,8 +21,7 @@ if (!isAdmin)
 var speech = new SpeechService();
 
 // Инициализация STT
-var pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "python_stt", "listen.py");
-pythonScriptPath = Path.GetFullPath(pythonScriptPath);
+var pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "python_stt", "listen.py");
 Console.WriteLine($"🐍 Python script path: {pythonScriptPath}");
 Console.WriteLine($"📁 File exists: {File.Exists(pythonScriptPath)}");
 var recognition = new RecognitionService(pythonScriptPath);

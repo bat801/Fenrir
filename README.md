@@ -24,12 +24,14 @@ Voice-controlled personal assistant for Windows — inspired by J.A.R.V.I.S.
 
 ## 🚀 Quick start
 
-1. Install Python 3.10+ and dependencies:
+1. Install [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) and Python 3.10+
+2. Install Python dependencies:
    ```bash
-   pip install faster-whisper
+   pip install -r python_stt/requirements.txt
    ```
-2. Install NAudio NuGet package in Visual Studio
-3. Build and run `Fenrir.sln`
+3. Build and run `Fenrir.sln` (or launch `Fenrir.exe` from a release archive)
+4. For system commands (Task Manager, shutdown) run Fenrir as administrator
+5. On the first voice request Whisper downloads the model (~500 MB)
 
 ## 📋 Roadmap
 

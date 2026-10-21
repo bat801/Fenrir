@@ -64,6 +64,9 @@ obj/
 *.suo
 .vs/
 
+# Release packages (attached to GitHub Releases, not committed)
+/Fenrir-v*-win-*/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

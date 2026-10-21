@@ -49,6 +49,10 @@ public class RecognitionService
             // Записываем аудио
             await RecordAudio(tempWavPath, cancellationToken);
 
+            // Клавиатурный ввод отменил голосовой — не тратим время на распознавание
+            if (cancellationToken.IsCancellationRequested)
+                return string.Empty;
+
             Console.WriteLine("⏹ Распознаю...");
 
             // Отдаём Python Whisper
@@ -134,15 +138,22 @@ public class RecognitionService
 
             waveIn.StartRecording();
 
-            // Ждём отпускания клавиш
-            while (IsKeyPressed(0x11) && IsKeyPressed(0x10))
+            try
             {
-                if (ct.IsCancellationRequested)
-                    break;
-                await Task.Delay(100, ct);
+                // Ждём отпускания клавиш
+                while (IsKeyPressed(0x11) && IsKeyPressed(0x10))
+                {
+                    if (ct.IsCancellationRequested)
+                        break;
+                    await Task.Delay(100, ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Отмена пришла во время записи — ниже всё равно корректно остановим микрофон
             }
 
-            // Останавливаем запись
+            // Останавливаем запись всегда, чтобы не оставить микрофон включённым
             try
             {
                 waveIn.StopRecording();
