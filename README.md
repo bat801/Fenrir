@@ -26,13 +26,19 @@ Voice-controlled personal assistant for Windows — inspired by J.A.R.V.I.S.
 ## 🚀 Quick start
 
 1. Install [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) and Python 3.10+
-2. Install Python dependencies:
-   ```bash
-   pip install -r python_stt/requirements.txt
+2. Install Python dependencies (creates a persistent venv in `python_stt\.venv`):
+   ```bat
+   python_stt\setup.bat
    ```
-3. Build and run `Fenrir.sln` (or launch `Fenrir.exe` from a release archive)
+   Or install globally: `pip install -r python_stt/requirements.txt`
+3. Build and run `Fenrir.sln` (or launch `Fenrir.exe` from a release folder)
 4. For system commands (Task Manager, shutdown) run Fenrir as administrator
-5. On the first voice request Whisper downloads the model (~500 MB)
+5. On the first voice request Whisper downloads the model to `%LOCALAPPDATA%\Fenrir\cache` (~500 MB)
+
+To check which paths and Python interpreter are used, run:
+```bat
+Fenrir.exe --diagnose
+```
 
 ## 🧪 Tests
 

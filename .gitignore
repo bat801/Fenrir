@@ -68,6 +68,9 @@ obj/
 /Fenrir-v*-win-*/
 /Fenrir-v*-win-*.zip
 
+# Python virtual environment
+python_stt/.venv/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

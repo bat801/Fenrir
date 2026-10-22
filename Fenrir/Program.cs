@@ -1,4 +1,5 @@
-﻿using System.Runtime.Versioning;
+﻿using System.Diagnostics;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 using Fenrir.Core.Services;
 using Fenrir.Core.Skills;
@@ -11,6 +12,20 @@ bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent())
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+var pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "python_stt", "listen.py");
+
+if (args.Contains("--diagnose", StringComparer.OrdinalIgnoreCase))
+{
+    string pythonExe = RecognitionService.ResolvePythonExecutable();
+    Console.WriteLine($"📦 Exe: {Environment.ProcessPath}");
+    Console.WriteLine($"📁 Base directory: {AppContext.BaseDirectory}");
+    Console.WriteLine($"🐍 Python script: {pythonScriptPath}");
+    Console.WriteLine($"📁 Script exists: {File.Exists(pythonScriptPath)}");
+    Console.WriteLine($"🐍 Python: {pythonExe}");
+    PrintPythonCheck(pythonExe);
+    return;
+}
+
 if (!isAdmin)
 {
     Console.WriteLine("⚠️ Fenrir запущен без прав администратора.");
@@ -21,7 +36,7 @@ if (!isAdmin)
 var speech = new SpeechService();
 
 // Инициализация STT
-var pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "python_stt", "listen.py");
+Console.WriteLine($"📦 Exe: {Environment.ProcessPath}");
 Console.WriteLine($"🐍 Python script path: {pythonScriptPath}");
 Console.WriteLine($"📁 File exists: {File.Exists(pythonScriptPath)}");
 var recognition = new RecognitionService(pythonScriptPath);
@@ -183,4 +198,42 @@ static bool IsConfirmationYes(string input)
 
     return normalized is "да" or "yes" or "ага" or "угу" or "ок" or "окей"
         or "давай" or "конечно" or "подтверждаю" or "подтвердить";
+}
+
+static void PrintPythonCheck(string pythonExe)
+{
+    try
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = "-c \"import faster_whisper, av; print(faster_whisper.__version__ + ', av ' + av.__version__)\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8
+        };
+
+        using var process = Process.Start(psi);
+        if (process == null)
+        {
+            Console.WriteLine("❌ Не удалось запустить Python.");
+            return;
+        }
+
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode == 0)
+            Console.WriteLine($"✅ faster-whisper: {output.Trim()}");
+        else
+            Console.WriteLine($"❌ faster-whisper недоступен:\n{error.Trim()}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Ошибка запуска Python: {ex.Message}");
+    }
 }

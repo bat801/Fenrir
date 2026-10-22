@@ -24,6 +24,7 @@
   <ItemGroup>
     <None Include="..\python_stt\listen.py" Link="python_stt\listen.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\python_stt\requirements.txt" Link="python_stt\requirements.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\python_stt\setup.bat" Link="python_stt\setup.bat" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
