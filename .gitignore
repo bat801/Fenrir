@@ -66,6 +66,7 @@ obj/
 
 # Release packages (attached to GitHub Releases, not committed)
 /Fenrir-v*-win-*/
+/Fenrir-v*-win-*.zip
 
 # .NET Core
 project.lock.json

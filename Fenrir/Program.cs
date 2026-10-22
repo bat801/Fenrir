@@ -39,87 +39,18 @@ var skills = new List<ISkill>
     new TimeSkill(),
     new SystemSkill(),
     new CalculatorSkill(),
-    new BrowserSkill(),    
+    new BrowserSkill(),
+    new CleanupSkill(),
     // Сюда будем добавлять новые навыки
 };
 
 // Главный цикл обработки команд
 while (true)
 {
-    Console.Write("> ");
-
-    string? input = null;
-
-    // Ждём либо клавиатуру, либо голос — что произойдёт раньше
-    using var cts = new CancellationTokenSource();
-
-    // Задача: ждём нажатия Enter (клавиатурный ввод)
-    var keyboardTask = Task.Run(() =>
-    {
-        var line = new System.Text.StringBuilder();
-        while (!cts.Token.IsCancellationRequested)
-        {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(intercept: true);
-
-                if (key.Key == ConsoleKey.Enter)
-                {
-                    Console.WriteLine(); // Переход на новую строку
-                    return line.ToString().Trim();
-                }
-                else if (key.Key == ConsoleKey.Backspace && line.Length > 0)
-                {
-                    line.Length--;
-                    Console.Write("\b \b"); // Стираем символ
-                }
-                else if (!char.IsControl(key.KeyChar))
-                {
-                    line.Append(key.KeyChar);
-                    Console.Write(key.KeyChar); // Эхо-вывод
-                }
-            }
-            else
-            {
-                Thread.Sleep(50);
-            }
-        }
-        return string.Empty;
-    }, cts.Token);
-
-    // Задача: ждём голосовой ввод
-    var voiceTask = recognition.ListenAsync(cts.Token);
-
-    // Ждём, что произойдёт раньше
-    var completedTask = await Task.WhenAny(keyboardTask, voiceTask);
-
-    if (completedTask == keyboardTask)
-    {
-        // Клавиатура победила — отменяем голос
-        cts.Cancel();
-        input = await keyboardTask;
-    }
-    else
-    {
-        // Голос победил
-        input = await voiceTask;
-        cts.Cancel(); // Отменяем ожидание клавиатуры
-
-        // Очищаем буфер консоли от случайных нажатий во время голосового ввода
-        await Task.Delay(100);
-        while (Console.KeyAvailable)
-            Console.ReadKey(true);
-    }
+    string? input = await ReadInputAsync(recognition);
 
     if (string.IsNullOrWhiteSpace(input))
         continue;
-
-    // Убираем точку в конце
-    input = input.TrimEnd('.').Trim();
-
-    // Показываем что распознано (для голосового ввода уже показано, но для единообразия)
-    if (completedTask == voiceTask)
-        Console.WriteLine(input);
 
     // Системные команды
     if (input.Equals("выход", StringComparison.OrdinalIgnoreCase) ||
@@ -157,6 +88,20 @@ while (true)
 
     if (matchedSkill != null)
     {
+        if (matchedSkill.RequiresConfirmation)
+        {
+            Console.WriteLine($"⚠️ {matchedSkill.ConfirmationPrompt}");
+            speech.SpeakSync(matchedSkill.ConfirmationPrompt);
+
+            string confirmation = await ReadInputAsync(recognition);
+            if (!IsConfirmationYes(confirmation))
+            {
+                Console.WriteLine("❌ Действие отменено.");
+                speech.Speak("Действие отменено.");
+                continue;
+            }
+        }
+
         var result = await matchedSkill.ExecuteAsync(input);
         Console.WriteLine(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}");
         speech.Speak(result.Message);
@@ -166,4 +111,76 @@ while (true)
         Console.WriteLine("🤔 Я пока не знаю такой команды.");
         speech.Speak("Я пока не знаю такой команды.");
     }
+}
+
+static async Task<string> ReadInputAsync(RecognitionService recognition)
+{
+    Console.Write("> ");
+
+    using var cts = new CancellationTokenSource();
+
+    var keyboardTask = Task.Run(() =>
+    {
+        var line = new System.Text.StringBuilder();
+        while (!cts.Token.IsCancellationRequested)
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(intercept: true);
+
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    Console.WriteLine();
+                    return line.ToString().Trim();
+                }
+                else if (key.Key == ConsoleKey.Backspace && line.Length > 0)
+                {
+                    line.Length--;
+                    Console.Write("\b \b");
+                }
+                else if (!char.IsControl(key.KeyChar))
+                {
+                    line.Append(key.KeyChar);
+                    Console.Write(key.KeyChar);
+                }
+            }
+            else
+            {
+                Thread.Sleep(50);
+            }
+        }
+        return string.Empty;
+    }, cts.Token);
+
+    var voiceTask = recognition.ListenAsync(cts.Token);
+    var completedTask = await Task.WhenAny(keyboardTask, voiceTask);
+
+    string input;
+    if (completedTask == keyboardTask)
+    {
+        cts.Cancel();
+        input = await keyboardTask;
+    }
+    else
+    {
+        input = await voiceTask;
+        cts.Cancel();
+
+        await Task.Delay(100);
+        while (Console.KeyAvailable)
+            Console.ReadKey(true);
+
+        if (!string.IsNullOrWhiteSpace(input))
+            Console.WriteLine(input);
+    }
+
+    return input.TrimEnd('.').Trim();
+}
+
+static bool IsConfirmationYes(string input)
+{
+    string normalized = input.Trim().ToLowerInvariant();
+
+    return normalized is "да" or "yes" or "ага" or "угу" or "ок" or "окей"
+        or "давай" or "конечно" or "подтверждаю" or "подтвердить";
 }

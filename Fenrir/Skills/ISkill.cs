@@ -19,6 +19,16 @@ public interface ISkill
     string[] Triggers { get; }
 
     /// <summary>
+    /// Нужно ли подтверждение перед выполнением команды.
+    /// </summary>
+    bool RequiresConfirmation => false;
+
+    /// <summary>
+    /// Текст запроса подтверждения.
+    /// </summary>
+    string ConfirmationPrompt => string.Empty;
+
+    /// <summary>
     /// Выполняет команду и возвращает результат.
     /// </summary>
     /// <param name="command">Полный текст команды от пользователя.</param>

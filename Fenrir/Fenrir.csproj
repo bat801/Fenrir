@@ -26,4 +26,8 @@
     <None Include="..\python_stt\requirements.txt" Link="python_stt\requirements.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Fenrir.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -11,6 +11,7 @@ Voice-controlled personal assistant for Windows — inspired by J.A.R.V.I.S.
 - 🧮 Calculate math expressions (including spoken numbers)
 - ⏰ Tell time and date
 - ⚙️ System control: volume, mute, lock screen, task manager, shutdown
+- 🧹 Cleanup: empty recycle bin and Windows/user temp folders (with confirmation)
 
 ## 🛠 Tech stack
 
@@ -32,6 +33,12 @@ Voice-controlled personal assistant for Windows — inspired by J.A.R.V.I.S.
 3. Build and run `Fenrir.sln` (or launch `Fenrir.exe` from a release archive)
 4. For system commands (Task Manager, shutdown) run Fenrir as administrator
 5. On the first voice request Whisper downloads the model (~500 MB)
+
+## 🧪 Tests
+
+```bash
+dotnet test
+```
 
 ## 📋 Roadmap
 
