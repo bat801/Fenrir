@@ -110,7 +110,8 @@ public class RecognitionService
             Console.WriteLine("🔴 Запись...");
 
             // Записываем аудио
-            await RecordAudio(tempWavPath, cancellationToken);
+            if (!await RecordAudio(tempWavPath, cancellationToken))
+                return string.Empty;
 
             // Клавиатурный ввод отменил голосовой — не тратим время на распознавание
             if (cancellationToken.IsCancellationRequested)
@@ -147,59 +148,102 @@ public class RecognitionService
         }
         finally
         {
-            if (File.Exists(tempWavPath))
-                File.Delete(tempWavPath);
+            TryDeleteFile(tempWavPath);
         }
     }
 
-    private async Task RecordAudio(string outputPath, CancellationToken ct)
+    internal static void TryDeleteFile(string path)
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return;
+
+                File.Delete(path);
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                Thread.Sleep(100);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return;
+            }
+        }
+    }
+
+    private async Task<bool> RecordAudio(string outputPath, CancellationToken ct)
     {
         // Защита от повторного входа
         if (_isRecording)
-            return;
+            return false;
 
         lock (_recordLock)
         {
             if (_isRecording)
-                return;
+                return false;
             _isRecording = true;
         }
 
+        WaveInEvent? waveIn = null;
+        WaveFileWriter? writer = null;
+        var writerLock = new object();
+        var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool writerClosed = false;
+        bool recordingStarted = false;
+        Exception? captureError = null;
+
         try
         {
-            var waveIn = new WaveInEvent
+            waveIn = new WaveInEvent
             {
                 WaveFormat = new WaveFormat(16000, 16, 1),
-                BufferMilliseconds = 50  // Меньше задержка
+                BufferMilliseconds = 50
             };
 
-            var writer = new WaveFileWriter(outputPath, waveIn.WaveFormat);
-            var tcs = new TaskCompletionSource<bool>();
+            var fileWriter = new WaveFileWriter(outputPath, waveIn.WaveFormat);
+            writer = fileWriter;
 
             waveIn.DataAvailable += (sender, args) =>
             {
-                if (args.BytesRecorded > 0)
+                try
                 {
-                    try
+                    if (args.BytesRecorded <= 0)
+                        return;
+
+                    lock (writerLock)
                     {
-                        writer.Write(args.Buffer, 0, args.BytesRecorded);
+                        if (!writerClosed)
+                            fileWriter.Write(args.Buffer, 0, args.BytesRecorded);
                     }
-                    catch (ObjectDisposedException) { }
+                }
+                catch (Exception ex)
+                {
+                    captureError ??= ex;
                 }
             };
 
             waveIn.RecordingStopped += (sender, args) =>
             {
-                try
-                {
-                    writer.Dispose();
-                    waveIn.Dispose();
-                }
-                catch { }
-                tcs.TrySetResult(true);
+                if (args.Exception != null)
+                    captureError ??= args.Exception;
+
+                stopped.TrySetResult(true);
             };
 
-            waveIn.StartRecording();
+            try
+            {
+                waveIn.StartRecording();
+                recordingStarted = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Не удалось открыть микрофон: {ex.Message}");
+                return false;
+            }
 
             try
             {
@@ -213,27 +257,64 @@ public class RecognitionService
             }
             catch (OperationCanceledException)
             {
-                // Отмена пришла во время записи — ниже всё равно корректно остановим микрофон
             }
-
-            // Останавливаем запись всегда, чтобы не оставить микрофон включённым
-            try
-            {
-                waveIn.StopRecording();
-                // Ждём завершения с таймаутом
-                await Task.WhenAny(tcs.Task, Task.Delay(2000));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"⚠️ Ошибка при остановке записи: {ex.Message}");
-            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Ошибка записи: {ex.Message}");
+            return false;
         }
         finally
         {
+            if (waveIn != null)
+            {
+                if (recordingStarted)
+                {
+                    try
+                    {
+                        waveIn.StopRecording();
+                        // Ждём завершения с таймаутом
+                        var completed = await Task.WhenAny(stopped.Task, Task.Delay(2000));
+                        if (completed != stopped.Task)
+                            captureError ??= new IOException("Драйвер микрофона не завершил запись.");
+                    }
+                    catch (Exception ex)
+                    {
+                        captureError ??= ex;
+                    }
+                }
+
+                lock (writerLock)
+                {
+                    writerClosed = true;
+                    try { writer?.Dispose(); } catch { }
+                }
+
+                try { waveIn.Dispose(); } catch { }
+            }
+
             lock (_recordLock)
             {
                 _isRecording = false;
             }
+        }
+
+        if (!recordingStarted)
+            return false;
+
+        if (captureError != null)
+        {
+            Console.WriteLine($"⚠️ Микрофон недоступен: {captureError.Message}");
+            return false;
+        }
+
+        try
+        {
+            return new FileInfo(outputPath).Length > 44;
+        }
+        catch
+        {
+            return false;
         }
     }
 
