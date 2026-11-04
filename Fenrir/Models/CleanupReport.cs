@@ -6,6 +6,8 @@ public sealed class CleanupReport
     public int DeletedDirectories { get; set; }
     public int SkippedEntries { get; set; }
     public long FreedBytes { get; set; }
+    public long RecycleBinItems { get; set; }
+    public long RecycleBinBytes { get; set; }
     public bool RecycleBinCleared { get; set; }
     public string? RecycleBinError { get; set; }
     public List<string> Warnings { get; } = new();

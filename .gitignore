@@ -68,6 +68,9 @@ obj/
 /Fenrir-v*-win-*/
 /Fenrir-v*-win-*.zip
 
+# Local scratch folder
+/0_forOpenCode/
+
 # Python virtual environment
 python_stt/.venv/
 

@@ -12,6 +12,8 @@ Voice-controlled personal assistant for Windows — inspired by J.A.R.V.I.S.
 - ⏰ Tell time and date
 - ⚙️ System control: volume, mute, lock screen, task manager, shutdown
 - 🧹 Cleanup: empty recycle bin and Windows/user temp folders (with confirmation)
+- 🎮 AMD shader cache cleanup: DxCache, DxcCache, OglCache, VkCache
+- 🧨 Full cleanup: recycle bin, temp files, AMD cache, crash dumps and Windows Error Reporting reports
 
 ## 🛠 Tech stack
 
@@ -39,6 +41,20 @@ To check which paths and Python interpreter are used, run:
 ```bat
 Fenrir.exe --diagnose
 ```
+
+## 🧹 Cleanup commands
+
+All cleanup actions ask for confirmation first.
+
+| Phrase | What it cleans |
+|--------|----------------|
+| «очисти мусор» | Recycle bin + Windows/user temp folders |
+| «очисти кэш», «очисти кэш амд», «очисти кэш видеокарты» | AMD shader cache (`DxCache`, `DxcCache`, `OglCache`, `VkCache`) |
+| «генеральная уборка», «полная уборка», «очисти всё», «приберись» | Everything above + crash dumps + WER reports |
+
+Full cleanup also removes `%LOCALAPPDATA%\CrashDumps`, `%WINDIR%\Minidump`, `%WINDIR%\LiveKernelReports`,
+`%WINDIR%\MEMORY.DMP` and Windows Error Reporting queues. Run Fenrir as administrator to clean
+system-wide WER data and Windows Temp completely.
 
 ## 🧪 Tests
 

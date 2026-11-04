@@ -46,7 +46,7 @@ speech.Speak("Фенрир запущен. Я готов к работе, сэр
 Console.WriteLine("\n🤖 Фенрир запущен. Напишите 'выход' для завершения.");
 Console.WriteLine("   Голос: зажмите Ctrl+Shift, говорите, отпустите — Fenrir выполнит команду.");
 Console.WriteLine("   Текст: просто напишите команду и нажмите Enter.");
-Console.WriteLine("   Команды: 'список голосов' | 'голос <номер>' | 'выход'\n");
+Console.WriteLine("   Команды: 'список голосов' | 'очисти кэш амд' | 'генеральная уборка' | 'выход'\n");
 
 // Регистрируем все имеющиеся навыки
 var skills = new List<ISkill>
@@ -56,6 +56,8 @@ var skills = new List<ISkill>
     new CalculatorSkill(),
     new BrowserSkill(),
     new CleanupSkill(),
+    new AmdCacheSkill(),
+    new DeepCleanSkill(),
     // Сюда будем добавлять новые навыки
 };
 
@@ -119,7 +121,7 @@ while (true)
 
         var result = await matchedSkill.ExecuteAsync(input);
         Console.WriteLine(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}");
-        speech.Speak(result.Message);
+        speech.Speak(result.SpeechMessage ?? result.Message);
     }
     else
     {

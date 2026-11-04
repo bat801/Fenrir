@@ -1,7 +1,7 @@
-using System.Globalization;
 using System.Text;
 using Fenrir.Core.Models;
 using Fenrir.Core.Services;
+using Fenrir.Core.Utilities;
 
 namespace Fenrir.Core.Skills;
 
@@ -28,10 +28,10 @@ public sealed class CleanupSkill : ISkill
             Console.WriteLine($"⚠️ {warning}");
 
         var message = new StringBuilder();
-        message.Append($"Очистка завершена. Удалено {report.DeletedFiles} файлов и {report.DeletedDirectories} папок, освобождено {FormatSize(report.FreedBytes)}.");
+        message.Append($"Очистка завершена. Удалено {RussianPlural.Files(report.DeletedFiles)} и {RussianPlural.Folders(report.DeletedDirectories)}, освобождено {ByteSizeFormatter.Format(report.FreedBytes)}.");
 
         if (report.SkippedEntries > 0)
-            message.Append($" Пропущено {report.SkippedEntries} занятых или недоступных объектов.");
+            message.Append($" Пропущено {RussianPlural.Objects(report.SkippedEntries)}: занятые или недоступные.");
 
         if (report.RecycleBinCleared)
             message.Append(" Корзина очищена.");
@@ -40,18 +40,5 @@ public sealed class CleanupSkill : ISkill
 
         var text = message.ToString();
         return Task.FromResult(report.HasChanges ? CommandResult.Ok(text) : CommandResult.Fail(text));
-    }
-
-    private static string FormatSize(long bytes)
-    {
-        var culture = CultureInfo.GetCultureInfo("ru-RU");
-
-        if (bytes >= 1024 * 1024)
-            return $"{(bytes / (1024.0 * 1024.0)).ToString("0.0", culture)} МБ";
-
-        if (bytes >= 1024)
-            return $"{(bytes / 1024.0).ToString("0.0", culture)} КБ";
-
-        return $"{bytes} байт";
     }
 }
