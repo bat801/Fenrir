@@ -20,9 +20,9 @@ public sealed class CleanupSkillsTests : IDisposable
 
         Assert.True(skill.RequiresConfirmation);
         Assert.False(string.IsNullOrWhiteSpace(skill.ConfirmationPrompt));
-        Assert.Contains("очисти кэш", skill.Triggers);
-        Assert.Contains("очисти кэш амд", skill.Triggers);
-        Assert.Contains("очисти кэш видеокарты", skill.Triggers);
+        Assert.Contains(skill.Triggers, trigger => trigger.Phrase == "очисти кэш");
+        Assert.Contains(skill.Triggers, trigger => trigger.Phrase == "очисти кэш амд");
+        Assert.Contains(skill.Triggers, trigger => trigger.Phrase == "очисти кэш видеокарты");
     }
 
     [Fact]
@@ -62,10 +62,10 @@ public sealed class CleanupSkillsTests : IDisposable
         var skill = new DeepCleanSkill();
 
         Assert.True(skill.RequiresConfirmation);
-        Assert.Contains("генеральная уборка", skill.Triggers);
-        Assert.Contains("полную уборку", skill.Triggers);
-        Assert.Contains("очисти всё", skill.Triggers);
-        Assert.Contains("приберись", skill.Triggers);
+        Assert.Contains(skill.Triggers, trigger => trigger.DisplayPhrase == "генеральн* уборк*");
+        Assert.Contains(skill.Triggers, trigger => trigger.DisplayPhrase == "полн* уборк*");
+        Assert.Contains(skill.Triggers, trigger => trigger.DisplayPhrase == "очисти всё");
+        Assert.Contains(skill.Triggers, trigger => trigger.DisplayPhrase == "приберись");
     }
 
     [Fact]

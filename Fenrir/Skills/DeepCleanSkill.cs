@@ -1,4 +1,5 @@
 using Fenrir.Core.Models;
+using Fenrir.Core.Routing;
 using Fenrir.Core.Services;
 using Fenrir.Core.Utilities;
 
@@ -20,15 +21,29 @@ public sealed class DeepCleanSkill : ISkill
 
     public string Name => "deep-clean";
 
-    public string[] Triggers => new[]
+    public string Description =>
+        "Генеральная уборка: корзина, временные файлы, кэш AMD, дампы и отчёты WER";
+
+    public IReadOnlyList<SkillTrigger> Triggers { get; } = new[]
     {
-        "генеральная уборка", "генеральную уборку", "генеральной уборкой",
-        "полная уборка", "полную уборку", "полной уборкой",
-        "полная очистка", "полную очистку", "полной очисткой",
-        "сделай полную уборку", "сделай генеральную уборку", "сделай уборку",
-        "очисти всё", "очисти все", "очистить всё", "очистить все",
-        "очисти весь мусор", "очистить весь мусор", "убери весь мусор",
-        "приберись", "прибери всё", "уберись", "прибраться"
+        new SkillTrigger("генеральная уборка", priority: 40),
+        new SkillTrigger("генеральн* уборк*", priority: 40),
+        new SkillTrigger("полн* уборк*", priority: 40),
+        new SkillTrigger("полн* очистк* мусор*", priority: 40),
+        new SkillTrigger(
+            "полн* очистк*",
+            priority: 40,
+            excludes: new[] { "кэш*", "cache" }),
+        new SkillTrigger("сделай уборку", priority: 30),
+        new SkillTrigger("очисти всё", priority: 30),
+        new SkillTrigger("очистить всё", priority: 30),
+        new SkillTrigger("очисти весь мусор", priority: 30),
+        new SkillTrigger("очистить весь мусор", priority: 30),
+        new SkillTrigger("убери весь мусор", priority: 30),
+        new SkillTrigger("приберись", priority: 30),
+        new SkillTrigger("прибери всё", priority: 30),
+        new SkillTrigger("уберись", priority: 30),
+        new SkillTrigger("прибраться", priority: 30)
     };
 
     public bool RequiresConfirmation => true;

@@ -1,9 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using Fenrir.Core.Models;
+using Fenrir.Core.Routing;
 using Fenrir.Core.Services;
 using Fenrir.Core.Skills;
-using Fenrir.Core.Models;
 
 [assembly: SupportedOSPlatform("windows")]
 
@@ -26,6 +27,11 @@ if (args.Contains("--diagnose", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+IReadOnlyList<ISkill> skills = CreateSkills();
+
+if (TryHandleRouteDiagnostics(args, skills))
+    return;
+
 if (!isAdmin)
 {
     Console.WriteLine("⚠️ Fenrir запущен без прав администратора.");
@@ -46,20 +52,9 @@ speech.Speak("Фенрир запущен. Я готов к работе, сэр
 Console.WriteLine("\n🤖 Фенрир запущен. Напишите 'выход' для завершения.");
 Console.WriteLine("   Голос: зажмите Ctrl+Shift, говорите, отпустите — Fenrir выполнит команду.");
 Console.WriteLine("   Текст: просто напишите команду и нажмите Enter.");
-Console.WriteLine("   Команды: 'список голосов' | 'очисти кэш амд' | 'генеральная уборка' | 'выход'\n");
+Console.WriteLine("   Команды: 'что ты умеешь' | 'очисти кэш амд' | 'генеральная уборка' | 'выход'\n");
 
-// Регистрируем все имеющиеся навыки
-var skills = new List<ISkill>
-{
-    new TimeSkill(),
-    new SystemSkill(),
-    new CalculatorSkill(),
-    new BrowserSkill(),
-    new CleanupSkill(),
-    new AmdCacheSkill(),
-    new DeepCleanSkill(),
-    // Сюда будем добавлять новые навыки
-};
+var router = new IntentRouter(skills);
 
 // Главный цикл обработки команд
 while (true)
@@ -84,50 +79,220 @@ while (true)
         continue;
     }
 
-    // Умный роутер: ищем навык с самым длинным совпавшим триггером, который может обработать команду
-    ISkill? matchedSkill = null;
-    int bestTriggerLength = 0;
-
-    foreach (var skill in skills)
+    if (IsHelpRequest(input))
     {
-        foreach (var trigger in skill.Triggers)
-        {
-            if (input.Contains(trigger, StringComparison.OrdinalIgnoreCase))
-            {
-                if (trigger.Length > bestTriggerLength)
-                {
-                    bestTriggerLength = trigger.Length;
-                    matchedSkill = skill;
-                }
-            }
-        }
+        PrintHelp(skills);
+        speech.Speak("Вот что я умею.");
+        continue;
     }
 
-    if (matchedSkill != null)
-    {
-        if (matchedSkill.RequiresConfirmation)
-        {
-            Console.WriteLine($"⚠️ {matchedSkill.ConfirmationPrompt}");
-            speech.SpeakSync(matchedSkill.ConfirmationPrompt);
+    RoutingResult routing = router.Route(input);
 
-            string confirmation = await ReadInputAsync(recognition);
-            if (!IsConfirmationYes(confirmation))
-            {
-                Console.WriteLine("❌ Действие отменено.");
-                speech.Speak("Действие отменено.");
-                continue;
-            }
+    if (routing.Best is null)
+    {
+        Console.WriteLine("🤔 Не понял команду. Скажите «что ты умеешь».");
+        speech.Speak("Не понял команду.");
+        continue;
+    }
+
+    ISkill matchedSkill;
+
+    if (routing.IsAmbiguous)
+    {
+        ISkill? chosen = await ResolveAmbiguityAsync(
+            routing,
+            router,
+            recognition,
+            speech);
+
+        if (chosen is null)
+        {
+            Console.WriteLine("❌ Уточнение отменено.");
+            speech.Speak("Отменено.");
+            continue;
         }
 
-        var result = await matchedSkill.ExecuteAsync(input);
-        Console.WriteLine(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}");
-        speech.Speak(result.SpeechMessage ?? result.Message);
+        matchedSkill = chosen;
     }
     else
     {
-        Console.WriteLine("🤔 Я пока не знаю такой команды.");
-        speech.Speak("Я пока не знаю такой команды.");
+        matchedSkill = routing.Best.Skill;
     }
+
+    if (matchedSkill.RequiresConfirmation)
+    {
+        Console.WriteLine($"⚠️ {matchedSkill.ConfirmationPrompt}");
+        speech.SpeakSync(matchedSkill.ConfirmationPrompt);
+
+        string confirmation = await ReadInputAsync(recognition);
+        if (!IsConfirmationYes(confirmation))
+        {
+            Console.WriteLine("❌ Действие отменено.");
+            speech.Speak("Действие отменено.");
+            continue;
+        }
+    }
+
+    var result = await matchedSkill.ExecuteAsync(input);
+    Console.WriteLine(result.Success ? $"✅ {result.Message}" : $"❌ {result.Message}");
+    speech.Speak(result.SpeechMessage ?? result.Message);
+}
+
+static IReadOnlyList<ISkill> CreateSkills() => new List<ISkill>
+{
+    new TimeSkill(),
+    new SystemSkill(),
+    new CalculatorSkill(),
+    new BrowserSkill(),
+    new CleanupSkill(),
+    new AmdCacheSkill(),
+    new DeepCleanSkill()
+    // Сюда будем добавлять новые навыки
+};
+
+static bool TryHandleRouteDiagnostics(
+    string[] args,
+    IReadOnlyList<ISkill> skills)
+{
+    int index = Array.FindIndex(
+        args,
+        argument => argument.Equals("--route", StringComparison.OrdinalIgnoreCase));
+
+    if (index < 0)
+        return false;
+
+    if (index + 1 >= args.Length)
+    {
+        Console.WriteLine("Использование: Fenrir.exe --route \"текст команды\"");
+        return true;
+    }
+
+    string command = string.Join(" ", args.Skip(index + 1));
+    var router = new IntentRouter(skills);
+    RoutingResult result = router.Route(command);
+
+    PrintRoutingResult(command, result);
+    return true;
+}
+
+static void PrintRoutingResult(string command, RoutingResult result)
+{
+    Console.WriteLine($"🔎 Команда: {command}");
+    Console.WriteLine($"   Нормализовано: {TextNormalizer.Normalize(command)}");
+
+    if (result.Best is null)
+    {
+        Console.WriteLine("   Совпадений нет.");
+        return;
+    }
+
+    Console.WriteLine(
+        $"   Лучший навык: {result.Best.Skill.Name} " +
+        $"({result.Best.Skill.Description})");
+    Console.WriteLine(
+        $"   Триггер: «{result.Best.Trigger.DisplayPhrase}», " +
+        $"score {result.Best.Score}");
+
+    if (result.IsAmbiguous)
+        Console.WriteLine("   ⚠️ Неоднозначно: несколько навыков подходят одинаково.");
+
+    Console.WriteLine("   Кандидаты:");
+    foreach (SkillMatch candidate in result.Candidates)
+    {
+        Console.WriteLine(
+            $"     - {candidate.Skill.Name}: " +
+            $"«{candidate.Trigger.DisplayPhrase}», score {candidate.Score}");
+    }
+}
+
+static async Task<ISkill?> ResolveAmbiguityAsync(
+    RoutingResult routing,
+    IntentRouter router,
+    RecognitionService recognition,
+    SpeechService speech)
+{
+    RoutingResult current = routing;
+
+    while (true)
+    {
+        SkillMatch[] candidates = current.Candidates.Take(5).ToArray();
+
+        Console.WriteLine("🤔 Уточните, что вы имели в виду:");
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Console.WriteLine(
+                $"   {i + 1}. {candidates[i].Skill.Description} — " +
+                $"«{candidates[i].Trigger.DisplayPhrase}»");
+        }
+
+        Console.WriteLine("   Введите номер, другую команду или «отмена».");
+        speech.SpeakSync("Уточните, пожалуйста, команду.");
+
+        string answer = await ReadInputAsync(recognition);
+
+        if (string.IsNullOrWhiteSpace(answer) || IsCancel(answer))
+            return null;
+
+        string trimmed = answer.Trim().TrimEnd('.');
+
+        if (int.TryParse(trimmed, out int index) &&
+            index >= 1 &&
+            index <= candidates.Length)
+        {
+            return candidates[index - 1].Skill;
+        }
+
+        RoutingResult next = router.Route(answer);
+
+        if (next.Best is null)
+        {
+            Console.WriteLine("🤔 Не понял. Введите номер из списка или «отмена».");
+            speech.Speak("Не понял. Введите номер из списка.");
+            continue;
+        }
+
+        if (!next.IsAmbiguous)
+            return next.Best.Skill;
+
+        current = next;
+    }
+}
+
+static void PrintHelp(IReadOnlyList<ISkill> skills)
+{
+    Console.WriteLine("\n🤖 Что я умею:");
+
+    foreach (ISkill skill in skills)
+    {
+        string example = skill.Triggers.Count > 0
+            ? skill.Triggers[0].DisplayPhrase
+            : "—";
+
+        Console.WriteLine($"   • {skill.Description} — «{example}»");
+    }
+
+    Console.WriteLine("   • Список голосов — «список голосов»");
+    Console.WriteLine("   • Выход — «выход»\n");
+}
+
+static bool IsHelpRequest(string input)
+{
+    string normalized = TextNormalizer.Normalize(input);
+
+    return normalized is
+        "помощь" or
+        "help" or
+        "команды" or
+        "список команд" or
+        "что ты умеешь" or
+        "что умеешь";
+}
+
+static bool IsCancel(string input)
+{
+    string normalized = TextNormalizer.Normalize(input);
+
+    return normalized is "отмена" or "отменить" or "нет" or "cancel";
 }
 
 static async Task<string> ReadInputAsync(RecognitionService recognition)
@@ -196,7 +361,7 @@ static async Task<string> ReadInputAsync(RecognitionService recognition)
 
 static bool IsConfirmationYes(string input)
 {
-    string normalized = input.Trim().ToLowerInvariant();
+    string normalized = TextNormalizer.Normalize(input);
 
     return normalized is "да" or "yes" or "ага" or "угу" or "ок" or "окей"
         or "давай" or "конечно" or "подтверждаю" or "подтвердить";

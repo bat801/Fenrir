@@ -1,5 +1,6 @@
 using System.Text;
 using Fenrir.Core.Models;
+using Fenrir.Core.Routing;
 using Fenrir.Core.Services;
 using Fenrir.Core.Utilities;
 
@@ -9,10 +10,15 @@ public sealed class CleanupSkill : ISkill
 {
     public string Name => "cleanup";
 
-    public string[] Triggers => new[]
+    public string Description => "Очистка корзины и временных файлов";
+
+    public IReadOnlyList<SkillTrigger> Triggers { get; } = new[]
     {
-        "очисти мусор", "очистить мусор", "почисти мусор",
-        "очистка мусора", "убери мусор"
+        new SkillTrigger("очисти мусор", priority: 20),
+        new SkillTrigger("очистить мусор", priority: 20),
+        new SkillTrigger("почисти мусор", priority: 20),
+        new SkillTrigger("очистка мусора", priority: 20),
+        new SkillTrigger("убери мусор", priority: 20)
     };
 
     public bool RequiresConfirmation => true;
@@ -28,7 +34,10 @@ public sealed class CleanupSkill : ISkill
             Console.WriteLine($"⚠️ {warning}");
 
         var message = new StringBuilder();
-        message.Append($"Очистка завершена. Удалено {RussianPlural.Files(report.DeletedFiles)} и {RussianPlural.Folders(report.DeletedDirectories)}, освобождено {ByteSizeFormatter.Format(report.FreedBytes)}.");
+        message.Append(
+            $"Очистка завершена. Удалено {RussianPlural.Files(report.DeletedFiles)} " +
+            $"и {RussianPlural.Folders(report.DeletedDirectories)}, " +
+            $"освобождено {ByteSizeFormatter.Format(report.FreedBytes)}.");
 
         if (report.SkippedEntries > 0)
             message.Append($" Пропущено {RussianPlural.Objects(report.SkippedEntries)}: занятые или недоступные.");

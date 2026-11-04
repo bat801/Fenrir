@@ -1,33 +1,32 @@
-﻿using Fenrir.Core.Models;
-using Fenrir.Core.Skills;
-using System.Data;
+﻿using System.Data;
 using System.Text.RegularExpressions;
+using Fenrir.Core.Models;
+using Fenrir.Core.Routing;
 
 namespace Fenrir.Core.Skills;
 
 public class CalculatorSkill : ISkill
 {
     public string Name => "calculator";
-    public string[] Triggers => new[]
+
+    public string Description => "Вычисление математических выражений";
+
+    public IReadOnlyList<SkillTrigger> Triggers { get; } = new[]
     {
-        "сколько будет", "посчитай", "калькулятор", "вычисли",
-        "реши пример", "сколько", "посчитать", "реши"
+        new SkillTrigger("сколько будет", priority: 20),
+        new SkillTrigger("посчитай", priority: 20),
+        new SkillTrigger("посчитать", priority: 20),
+        new SkillTrigger("калькулятор", priority: 20),
+        new SkillTrigger("вычисли", priority: 20),
+        new SkillTrigger("реши пример", priority: 20)
     };
+
+    public bool CanHandle(string command) => TryExtractExpression(command, out _);
 
     public Task<CommandResult> ExecuteAsync(string command)
     {
-        // Сначала заменяем слова-числа на цифры
-        command = ReplaceNumberWords(command);
-
-        // Ищем математическое выражение
-        var match = Regex.Match(command, @"\d[\d\s+\-*\/\.\(\)]*");
-
-        if (!match.Success || string.IsNullOrWhiteSpace(match.Value))
-        {
+        if (!TryExtractExpression(command, out string expression))
             return Task.FromResult(CommandResult.Fail("Не нашёл математическое выражение в команде."));
-        }
-
-        string expression = match.Value.Trim();
 
         try
         {
@@ -37,15 +36,30 @@ public class CalculatorSkill : ISkill
         }
         catch (Exception ex)
         {
-            return Task.FromResult(CommandResult.Fail($"Ошибка при вычислении '{expression}': {ex.Message}"));
+            return Task.FromResult(CommandResult.Fail(
+                $"Ошибка при вычислении '{expression}': {ex.Message}"));
         }
     }
 
+    private static bool TryExtractExpression(string command, out string expression)
+    {
+        expression = string.Empty;
+
+        string prepared = ReplaceNumberWords(command);
+        var match = Regex.Match(prepared, @"\d[\d\s+\-*\/\.\(\)]*");
+
+        if (!match.Success || string.IsNullOrWhiteSpace(match.Value))
+            return false;
+
+        expression = match.Value.Trim();
+        return expression.Length > 0;
+    }
+
     /// <summary>
-    /// Заменяет русские слова-числа на цифры.
+    /// Заменяет русские слова-числа и операции на математические символы.
     /// "два плюс сто" → "2 + 100"
     /// </summary>
-    private string ReplaceNumberWords(string text)
+    private static string ReplaceNumberWords(string text)
     {
         // Удаляем слова-паразиты перед поиском выражения
         text = Regex.Replace(text, @"\bна\b", " ", RegexOptions.IgnoreCase);

@@ -1,4 +1,5 @@
 ﻿using Fenrir.Core.Models;
+using Fenrir.Core.Routing;
 
 namespace Fenrir.Core.Skills;
 
@@ -13,10 +14,14 @@ public interface ISkill
     string Name { get; }
 
     /// <summary>
-    /// Ключевые фразы, по которым активируется навык.
-    /// Пока самая простая логика: содержит ли команда одно из этих слов.
+    /// Короткое описание для справки и уточняющих вопросов.
     /// </summary>
-    string[] Triggers { get; }
+    string Description { get; }
+
+    /// <summary>
+    /// Фразы, по которым навык может быть выбран роутером.
+    /// </summary>
+    IReadOnlyList<SkillTrigger> Triggers { get; }
 
     /// <summary>
     /// Нужно ли подтверждение перед выполнением команды.
@@ -27,6 +32,12 @@ public interface ISkill
     /// Текст запроса подтверждения.
     /// </summary>
     string ConfirmationPrompt => string.Empty;
+
+    /// <summary>
+    /// Быстрая проверка «умею ли я это». Не должна запускать процессы,
+    /// трогать файловую систему или иметь другие побочные эффекты.
+    /// </summary>
+    bool CanHandle(string command) => true;
 
     /// <summary>
     /// Выполняет команду и возвращает результат.

@@ -130,7 +130,7 @@ public sealed class CleanupServiceTests : IDisposable
 
         Assert.True(skill.RequiresConfirmation);
         Assert.False(string.IsNullOrWhiteSpace(skill.ConfirmationPrompt));
-        Assert.Contains("очисти мусор", skill.Triggers);
+        Assert.Contains(skill.Triggers, trigger => trigger.Phrase == "очисти мусор");
     }
 
     public void Dispose()

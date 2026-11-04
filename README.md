@@ -42,15 +42,30 @@ To check which paths and Python interpreter are used, run:
 Fenrir.exe --diagnose
 ```
 
+To inspect how a command is routed without starting voice input, run:
+```bat
+Fenrir.exe --route "сделай, пожалуйста, генеральную уборку"
+```
+
+## 🧭 Intent routing
+
+Fenrir uses a deterministic two-stage router:
+
+1. The command is normalized (case, `ё` → `е`, punctuation, extra spaces) and matched by whole tokens, not substrings.
+2. Each candidate skill is asked `CanHandle` before execution, so a trigger alone is not enough.
+
+This prevents false matches such as «персона» triggering sleep mode or «очисти кэш браузера» cleaning the AMD shader cache.
+Say «что ты умеешь» to list the available skills and example phrases.
+
 ## 🧹 Cleanup commands
 
 All cleanup actions ask for confirmation first.
 
 | Phrase | What it cleans |
 |--------|----------------|
-| «очисти мусор» | Recycle bin + Windows/user temp folders |
-| «очисти кэш», «очисти кэш амд», «очисти кэш видеокарты» | AMD shader cache (`DxCache`, `DxcCache`, `OglCache`, `VkCache`) |
-| «генеральная уборка», «полная уборка», «очисти всё», «приберись» | Everything above + crash dumps + WER reports |
+| «очисти мусор», «убери мусор» | Recycle bin + Windows/user temp folders |
+| «очисти кэш», «очисти кэш амд», «очисти кэш видеокарты», «шейдерный кэш» | AMD shader cache (`DxCache`, `DxcCache`, `OglCache`, `VkCache`) |
+| «генеральная уборка», «полная уборка», «полная очистка», «очисти всё», «приберись» | Everything above + crash dumps + WER reports |
 
 Full cleanup also removes `%LOCALAPPDATA%\CrashDumps`, `%WINDIR%\Minidump`, `%WINDIR%\LiveKernelReports`,
 `%WINDIR%\MEMORY.DMP` and Windows Error Reporting queues. Run Fenrir as administrator to clean
